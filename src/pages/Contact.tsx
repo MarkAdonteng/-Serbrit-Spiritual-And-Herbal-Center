@@ -29,11 +29,11 @@ export function ContactPage() {
           </div>
           <div className="grid gap-1">
             <div className="text-xs font-semibold tracking-[0.2em] text-[#c9a227]">PHONE</div>
-            <div>+1 (000) 000-0000</div>
+            <div>+233 24 306 6335</div>
           </div>
           <div className="grid gap-1">
             <div className="text-xs font-semibold tracking-[0.2em] text-[#c9a227]">LOCATION</div>
-            <div>City, State</div>
+            <div>Accra, Ghana</div>
           </div>
         </Panel>
       </div>
