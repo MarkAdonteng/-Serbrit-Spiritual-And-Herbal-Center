@@ -12,6 +12,29 @@ import { cn } from '../components/cn'
 
 const PAGE_SIZE = 8
 
+function SkeletonProductCard() {
+  return (
+    <Panel className="overflow-hidden">
+      <div className="animate-pulse">
+        <div className="aspect-[4/3] bg-white/10" />
+        <div className="grid gap-2 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="h-4 w-2/3 rounded bg-white/10" />
+            <div className="h-4 w-12 rounded bg-white/10" />
+          </div>
+          <div className="h-3 w-1/2 rounded bg-white/10" />
+          <div className="h-3 w-full rounded bg-white/10" />
+          <div className="h-3 w-4/5 rounded bg-white/10" />
+          <div className="mt-1 flex gap-2">
+            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+          </div>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
 export function ShopPage() {
   const { addItem } = useCart()
   const [params, setParams] = useSearchParams()
@@ -138,7 +161,11 @@ export function ShopPage() {
       </Panel>
 
       {loading ? (
-        <Panel className="p-6 text-sm text-white/70">Loading products…</Panel>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <SkeletonProductCard key={i} />
+          ))}
+        </div>
       ) : error ? (
         <Panel className="p-6 text-sm text-white/70">{error}</Panel>
       ) : products.length ? (

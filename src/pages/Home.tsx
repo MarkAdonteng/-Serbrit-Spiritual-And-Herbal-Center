@@ -8,6 +8,28 @@ import type { Product } from '../types'
 import { Button, Panel } from '../components/ui'
 import { useCart } from '../context/cart/useCart'
 
+function SkeletonProductCard() {
+  return (
+    <Panel className="overflow-hidden">
+      <div className="animate-pulse">
+        <div className="aspect-square bg-white/10" />
+        <div className="grid gap-2 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="h-4 w-2/3 rounded bg-white/10" />
+            <div className="h-4 w-12 rounded bg-white/10" />
+          </div>
+          <div className="h-3 w-full rounded bg-white/10" />
+          <div className="h-3 w-4/5 rounded bg-white/10" />
+          <div className="mt-1 flex gap-2">
+            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+          </div>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
 export function HomePage() {
   const { addItem } = useCart()
   const [products, setProducts] = useState<Product[]>([])
@@ -110,7 +132,11 @@ export function HomePage() {
         </div>
 
         {loading ? (
-          <Panel className="p-6 text-sm text-white/70">Loading featured products…</Panel>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonProductCard key={i} />
+            ))}
+          </div>
         ) : featured.length ? (
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {featured.map((p) => (
