@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { BRAND } from '../lib/constants'
 import { formatCurrency } from '../lib/format'
+import { withDefaultImageUrl } from '../lib/images'
 import type { Product } from '../types'
 import { Button, Panel } from '../components/ui'
-import { useCart } from '../context/CartContext'
+import { useCart } from '../context/cart/useCart'
 
 export function HomePage() {
   const { addItem } = useCart()
@@ -111,13 +112,13 @@ export function HomePage() {
         {loading ? (
           <Panel className="p-6 text-sm text-white/70">Loading featured products…</Panel>
         ) : featured.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {featured.map((p) => (
               <Panel key={p._id} className="group overflow-hidden">
                 <Link to={`/product/${p._id}`} className="block">
                   <div className="aspect-square bg-white/5">
                     <img
-                      src={p.imageUrl}
+                      src={withDefaultImageUrl(p.imageUrl)}
                       alt={p.name}
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                       loading="lazy"

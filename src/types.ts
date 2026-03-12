@@ -7,6 +7,7 @@ export type Product = {
   price: number
   description: string
   imageUrl: string
+  imagePath?: string
   stockQty: number
   createdAt?: string
   updatedAt?: string

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAdminAuth } from '../context/AdminAuthContext'
+import { useAdminAuth } from '../context/admin/useAdminAuth'
 import { Button, Input, Panel } from '../components/ui'
 
 export function AdminLoginPage() {

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { formatCurrency } from '../lib/format'
-import { useCart } from '../context/CartContext'
+import { withDefaultImageUrl } from '../lib/images'
+import { useCart } from '../context/cart/useCart'
 import type { OrderCustomer } from '../types'
 import { Button, Input, Panel } from '../components/ui'
 
@@ -89,7 +90,11 @@ export function CartCheckoutPage() {
             {items.map((it) => (
               <Panel key={it.product._id} className="grid gap-4 p-4 sm:grid-cols-[120px_1fr_auto] sm:items-center">
                 <div className="aspect-square overflow-hidden rounded-xl bg-white/5">
-                  <img src={it.product.imageUrl} alt={it.product.name} className="h-full w-full object-cover" />
+                  <img
+                    src={withDefaultImageUrl(it.product.imageUrl)}
+                    alt={it.product.name}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="grid gap-1">
                   <div className="text-sm font-extrabold">{it.product.name}</div>

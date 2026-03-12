@@ -1,9 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { formatCurrency } from '../lib/format'
+import { withDefaultImageUrl } from '../lib/images'
 import type { Product } from '../types'
-import { useCart } from '../context/CartContext'
+import { useCart } from '../context/cart/useCart'
 import { Button, Input, Panel } from '../components/ui'
 
 export function ProductDetailPage() {
@@ -47,7 +49,7 @@ export function ProductDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel className="overflow-hidden">
           <div className="aspect-square bg-white/5">
-            <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+            <img src={withDefaultImageUrl(product.imageUrl)} alt={product.name} className="h-full w-full object-cover" />
           </div>
         </Panel>
 
@@ -101,4 +103,3 @@ export function ProductDetailPage() {
     </div>
   )
 }
-

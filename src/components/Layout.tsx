@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BRAND } from '../lib/constants'
-import { useCart } from '../context/CartContext'
-import { Button, cn } from './ui'
+import { useCart } from '../context/cart/useCart'
+import { Button } from './ui'
+import { cn } from './cn'
 
 function CartBadge() {
   const { itemCount } = useCart()

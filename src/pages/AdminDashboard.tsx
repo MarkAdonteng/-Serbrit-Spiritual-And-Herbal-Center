@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { PRODUCT_CATEGORIES } from '../lib/constants'
 import { formatCurrency } from '../lib/format'
-import { useAdminAuth } from '../context/AdminAuthContext'
+import { withDefaultImageUrl } from '../lib/images'
+import { useAdminAuth } from '../context/admin/useAdminAuth'
 import type { Product, ProductCategory } from '../types'
 import { Button, Input, Panel } from '../components/ui'
 
@@ -24,10 +25,14 @@ export function AdminDashboardPage() {
   const [description, setDescription] = useState('')
   const [stockQty, setStockQty] = useState<number>(10)
   const [imageUrl, setImageUrl] = useState<string>('')
+  const [imagePath, setImagePath] = useState<string | undefined>(undefined)
   const [uploading, setUploading] = useState(false)
 
   const fetchProducts = useCallback(async () => {
-    if (!token) return
+    if (!token) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -52,6 +57,7 @@ export function AdminDashboardPage() {
     setDescription(selected.description)
     setStockQty(selected.stockQty)
     setImageUrl(selected.imageUrl)
+    setImagePath(selected.imagePath)
   }, [selected])
 
   const resetForm = () => {
@@ -62,6 +68,7 @@ export function AdminDashboardPage() {
     setDescription('')
     setStockQty(10)
     setImageUrl('')
+    setImagePath(undefined)
   }
 
   const onUpload = async (file: File | null) => {
@@ -71,6 +78,7 @@ export function AdminDashboardPage() {
     try {
       const res = await api.admin.uploadImage(token, file)
       setImageUrl(res.imageUrl)
+      setImagePath(res.imagePath)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Upload failed')
     } finally {
@@ -78,14 +86,26 @@ export function AdminDashboardPage() {
     }
   }
 
+  const errorText = (e: unknown) => {
+    if (e && typeof e === 'object' && 'code' in e && typeof (e as { code: unknown }).code === 'string') {
+      const code = (e as { code: string }).code
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      return `${code}: ${msg}`
+    }
+    return e instanceof Error ? e.message : 'Unknown error'
+  }
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!token) {
+      setError('Not authenticated. Please login again.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
-      if (!name.trim() || !description.trim() || !imageUrl.trim()) {
-        setError('Name, description, and image are required.')
+      if (!name.trim() || !description.trim()) {
+        setError('Name and description are required.')
         return
       }
 
@@ -95,7 +115,8 @@ export function AdminDashboardPage() {
           category,
           price: Number(price),
           description: description.trim(),
-          imageUrl: imageUrl.trim(),
+          imageUrl: imageUrl.trim() || '',
+          imagePath: imageUrl.trim() ? imagePath : undefined,
           stockQty: Math.max(0, Math.floor(Number(stockQty) || 0)),
         })
         setProducts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)))
@@ -105,14 +126,22 @@ export function AdminDashboardPage() {
           category,
           price: Number(price),
           description: description.trim(),
-          imageUrl: imageUrl.trim(),
+          imageUrl: imageUrl.trim() || '',
+          imagePath: imageUrl.trim() ? imagePath : undefined,
           stockQty: Math.max(0, Math.floor(Number(stockQty) || 0)),
         })
         setProducts((prev) => [created, ...prev])
         resetForm()
       }
+
+      await fetchProducts()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      const msg = errorText(e)
+      if (msg.includes('permission-denied')) {
+        setError(`${msg}. Check Firestore rules (write permission required).`)
+      } else {
+        setError(msg || 'Save failed')
+      }
     } finally {
       setSaving(false)
     }
@@ -219,14 +248,12 @@ export function AdminDashboardPage() {
               </div>
             </div>
 
-            {imageUrl ? (
-              <div className="overflow-hidden rounded-2xl bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.12)]">
-                <img src={imageUrl} alt="Product preview" className="h-56 w-full object-cover" />
-              </div>
-            ) : null}
+            <div className="overflow-hidden rounded-2xl bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.12)]">
+              <img src={withDefaultImageUrl(imageUrl)} alt="Product preview" className="h-56 w-full object-cover" />
+            </div>
             {uploading ? <div className="text-xs font-semibold text-white/60">Uploading image…</div> : null}
 
-            <Button variant="gold" type="submit" disabled={saving || uploading}>
+            <Button variant="gold" type="submit" disabled={saving}>
               {saving ? 'Saving…' : selectedId ? 'Save Changes' : 'Add Product'}
             </Button>
           </form>
@@ -250,7 +277,7 @@ export function AdminDashboardPage() {
                   className="grid gap-3 rounded-2xl bg-white/4 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.12)] sm:grid-cols-[88px_1fr_auto] sm:items-center"
                 >
                   <div className="aspect-square overflow-hidden rounded-xl bg-white/5">
-                    <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                    <img src={withDefaultImageUrl(p.imageUrl)} alt={p.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="grid gap-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

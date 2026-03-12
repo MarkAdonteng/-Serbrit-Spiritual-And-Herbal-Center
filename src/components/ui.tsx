@@ -1,10 +1,6 @@
-/* eslint-disable react-refresh/only-export-components */
 import { forwardRef } from 'react'
 import type React from 'react'
-
-export function cn(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(' ')
-}
+import { cn } from './cn'
 
 export const Button = forwardRef<
   HTMLButtonElement,
