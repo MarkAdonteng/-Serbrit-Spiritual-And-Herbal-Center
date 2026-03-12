@@ -97,6 +97,13 @@ export function AdminDashboardPage() {
     }
   }
 
+  const onImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    void onUpload(file).finally(() => {
+      e.target.value = ''
+    })
+  }
+
   const errorText = (e: unknown) => {
     if (e && typeof e === 'object' && 'code' in e && typeof (e as { code: unknown }).code === 'string') {
       const code = (e as { code: string }).code
@@ -265,7 +272,8 @@ export function AdminDashboardPage() {
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => void onUpload(e.target.files?.[0] ?? null)}
+                  onChange={onImageFileChange}
+                  disabled={uploading || saving}
                 />
               </div>
             </div>
@@ -275,7 +283,7 @@ export function AdminDashboardPage() {
             </div>
             {uploading ? <div className="text-xs font-semibold text-white/60">Uploading image…</div> : null}
 
-            <Button variant="gold" type="submit" disabled={saving}>
+            <Button variant="gold" type="submit" disabled={saving || uploading}>
               {saving ? 'Saving…' : selectedId ? 'Save Changes' : 'Add Product'}
             </Button>
           </form>

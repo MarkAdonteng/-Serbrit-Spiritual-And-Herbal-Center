@@ -11,10 +11,9 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore'
-import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import type { OrderCustomer, Product } from '../types'
-import { auth, db, firebaseConfigMissing, storage } from '../firebase'
+import { auth, db, firebaseConfigMissing } from '../firebase'
 
 const PRODUCTS = 'products'
 const ORDERS = 'orders'
@@ -32,11 +31,6 @@ function requireDb() {
 function requireAuth() {
   if (!auth) throw new Error(firebaseNotReadyMessage())
   return auth
-}
-
-function requireStorage() {
-  if (!storage) throw new Error(firebaseNotReadyMessage())
-  return storage
 }
 
 function timestampToIso(v: unknown) {
@@ -59,11 +53,6 @@ function productFromDoc(id: string, data: Record<string, unknown>): Product {
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
   }
-}
-
-function safeId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function stripUndefined<T extends Record<string, unknown>>(obj: T) {
@@ -194,31 +183,44 @@ export const api = {
       void _token
       const dbi = requireDb()
       const pRef = doc(dbi, PRODUCTS, id)
-      const snap = await getDoc(pRef)
-      if (snap.exists()) {
-        const data = snap.data() as Record<string, unknown>
-        const imagePath = typeof data.imagePath === 'string' ? data.imagePath : ''
-        if (imagePath) {
-          try {
-            const storagei = requireStorage()
-            await deleteObject(storageRef(storagei, imagePath))
-          } catch {
-            void 0
-          }
-        }
-      }
       await deleteDoc(pRef)
       return { ok: true as const }
     },
     uploadImage: async (_token: string, file: File) => {
       void _token
-      const storagei = requireStorage()
-      const id = safeId()
-      const path = `products/${id}-${file.name}`
-      const r = storageRef(storagei, path)
-      await uploadBytes(r, file, { contentType: file.type })
-      const imageUrl = await getDownloadURL(r)
-      return { imageUrl, imagePath: path }
+      const publicKey = (import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY as string | undefined)?.trim()
+      if (!publicKey) throw new Error('Missing VITE_IMAGEKIT_PUBLIC_KEY')
+
+      const authRes = await fetch('/__imagekit/auth', { method: 'GET' })
+      if (!authRes.ok) throw new Error('Failed to get ImageKit auth')
+      const authJson = (await authRes.json()) as { token?: unknown; expire?: unknown; signature?: unknown }
+
+      const token = typeof authJson.token === 'string' ? authJson.token : ''
+      const signature = typeof authJson.signature === 'string' ? authJson.signature : ''
+      const expire = typeof authJson.expire === 'number' ? String(authJson.expire) : String(authJson.expire ?? '')
+      if (!token || !signature || !expire) throw new Error('Invalid ImageKit auth response')
+
+      const form = new FormData()
+      form.append('file', file)
+      form.append('fileName', file.name || 'product-image')
+      form.append('publicKey', publicKey)
+      form.append('token', token)
+      form.append('signature', signature)
+      form.append('expire', expire)
+      form.append('folder', '/products')
+      form.append('useUniqueFileName', 'true')
+
+      const uploadRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body: form })
+      const uploadJson = (await uploadRes.json()) as { url?: unknown; fileId?: unknown }
+      if (!uploadRes.ok) {
+        const msg = uploadJson && typeof uploadJson === 'object' && 'message' in uploadJson ? String((uploadJson as { message?: unknown }).message) : 'Image upload failed'
+        throw new Error(msg)
+      }
+
+      const imageUrl = typeof uploadJson.url === 'string' ? uploadJson.url : ''
+      const imagePath = typeof uploadJson.fileId === 'string' ? uploadJson.fileId : undefined
+      if (!imageUrl) throw new Error('Image upload succeeded but URL is missing')
+      return { imageUrl, imagePath }
     },
   },
 }
