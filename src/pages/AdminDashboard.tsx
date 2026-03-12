@@ -16,6 +16,8 @@ export function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const selected = useMemo(() => products.find((p) => p._id === selectedId) ?? null, [products, selectedId])
 
@@ -59,6 +61,15 @@ export function AdminDashboardPage() {
     setImageUrl(selected.imageUrl)
     setImagePath(selected.imagePath)
   }, [selected])
+
+  useEffect(() => {
+    if (!deleteTarget) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDeleteTarget(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [deleteTarget])
 
   const resetForm = () => {
     setSelectedId(null)
@@ -156,6 +167,17 @@ export function AdminDashboardPage() {
       if (selectedId === id) resetForm()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await remove(deleteTarget._id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -291,7 +313,7 @@ export function AdminDashboardPage() {
                     <Button variant="ghost" type="button" onClick={() => setSelectedId(p._id)}>
                       Edit
                     </Button>
-                    <Button variant="primary" type="button" onClick={() => void remove(p._id)}>
+                    <Button variant="primary" type="button" onClick={() => setDeleteTarget(p)}>
                       Delete
                     </Button>
                   </div>
@@ -303,6 +325,41 @@ export function AdminDashboardPage() {
           )}
         </Panel>
       </div>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/70"
+            onClick={() => {
+              if (deleting) return
+              setDeleteTarget(null)
+            }}
+            aria-label="Close delete confirmation"
+          />
+          <Panel
+            className="relative w-full max-w-md p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-confirm-title"
+          >
+            <div className="text-sm font-extrabold" id="delete-confirm-title">
+              Delete product
+            </div>
+            <div className="mt-2 text-sm text-white/70">
+              Are you sure you want to delete <span className="font-semibold text-white">{deleteTarget.name}</span>?
+            </div>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="ghost" type="button" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="button" disabled={deleting} onClick={() => void confirmDelete()}>
+                {deleting ? 'Deleting…' : 'Delete'}
+              </Button>
+            </div>
+          </Panel>
+        </div>
+      ) : null}
     </div>
   )
 }
