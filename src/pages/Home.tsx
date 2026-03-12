@@ -20,9 +20,9 @@ function SkeletonProductCard() {
           </div>
           <div className="h-3 w-full rounded bg-white/10" />
           <div className="h-3 w-4/5 rounded bg-white/10" />
-          <div className="mt-1 flex gap-2">
-            <div className="h-10 flex-1 rounded-xl bg-white/10" />
-            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <div className="h-10 rounded-xl bg-white/10" />
+            <div className="h-10 rounded-xl bg-white/10" />
           </div>
         </div>
       </div>
@@ -157,11 +157,11 @@ export function HomePage() {
                     <div className="shrink-0 text-sm font-black text-[#c9a227]">{formatCurrency(p.price)}</div>
                   </div>
                   <div className="text-sm text-white/65">{p.description}</div>
-                  <div className="flex gap-2 pt-1">
-                    <Button variant="primary" className="flex-1" onClick={() => addItem(p, 1)} disabled={p.stockQty <= 0}>
+                  <div className="grid gap-2 pt-1 sm:grid-cols-2">
+                    <Button variant="primary" className="w-full" onClick={() => addItem(p, 1)} disabled={p.stockQty <= 0}>
                       Add to Cart
                     </Button>
-                    <Link to={`/product/${p._id}`} className="flex-1">
+                    <Link to={`/product/${p._id}`} className="w-full">
                       <Button variant="ghost" className="w-full">
                         Details
                       </Button>

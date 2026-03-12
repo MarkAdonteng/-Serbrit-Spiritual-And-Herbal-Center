@@ -25,9 +25,9 @@ function SkeletonProductCard() {
           <div className="h-3 w-1/2 rounded bg-white/10" />
           <div className="h-3 w-full rounded bg-white/10" />
           <div className="h-3 w-4/5 rounded bg-white/10" />
-          <div className="mt-1 flex gap-2">
-            <div className="h-10 flex-1 rounded-xl bg-white/10" />
-            <div className="h-10 flex-1 rounded-xl bg-white/10" />
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <div className="h-10 rounded-xl bg-white/10" />
+            <div className="h-10 rounded-xl bg-white/10" />
           </div>
         </div>
       </div>
@@ -190,16 +190,16 @@ export function ShopPage() {
                   </div>
                   <div className="text-xs font-semibold text-[#1f5f3a]">{p.category}</div>
                   <div className="text-sm text-white/65">{p.description}</div>
-                  <div className="flex gap-2 pt-2">
+                  <div className="grid gap-2 pt-2 sm:grid-cols-2">
                     <Button
                       variant="primary"
-                      className="flex-1"
+                      className="w-full"
                       onClick={() => addItem(p, 1)}
                       disabled={p.stockQty <= 0}
                     >
                       Add to Cart
                     </Button>
-                    <Link to={`/product/${p._id}`} className="flex-1">
+                    <Link to={`/product/${p._id}`} className="w-full">
                       <Button variant="ghost" className="w-full">
                         Details
                       </Button>
