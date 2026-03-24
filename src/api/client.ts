@@ -89,7 +89,11 @@ export const api = {
     },
   },
   orders: {
-    create: async (payload: { customer: OrderCustomer; items: Array<{ productId: string; qty: number }> }) => {
+    create: async (payload: {
+      customer: OrderCustomer
+      items: Array<{ productId: string; qty: number }>
+      payment?: { provider: 'paystack'; reference: string; currency: string; amount?: number }
+    }) => {
       const dbi = requireDb()
       const orderId = await runTransaction(dbi, async (tx) => {
         const itemSnapshots = []
@@ -107,13 +111,22 @@ export const api = {
 
         const total = itemSnapshots.reduce((sum, it) => sum + it.price * it.qty, 0)
         const orderRef = doc(collection(dbi, ORDERS))
-        tx.set(orderRef, {
+        const orderData: Record<string, unknown> = {
           items: itemSnapshots,
           customer: payload.customer,
           total,
-          status: 'placed',
+          status: payload.payment ? 'paid' : 'placed',
           createdAt: serverTimestamp(),
-        })
+        }
+        if (payload.payment) {
+          orderData.payment = {
+            provider: 'paystack',
+            reference: payload.payment.reference,
+            currency: payload.payment.currency,
+            amount: total,
+          }
+        }
+        tx.set(orderRef, orderData)
 
         return orderRef.id
       })

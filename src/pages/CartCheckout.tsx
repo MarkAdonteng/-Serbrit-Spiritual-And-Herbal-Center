@@ -28,29 +28,89 @@ export function CartCheckoutPage() {
 
   const canCheckout = items.length > 0 && !placing
 
-  const placeOrder = async () => {
-    setError(null)
-    if (!items.length) return
+  const validateCheckout = () => {
+    if (!items.length) return false
     const missing =
       !customer.fullName || !customer.email || !customer.phone || !customer.address || !customer.city || !customer.country
     if (missing) {
       setError('Please fill in all required customer fields.')
-      return
+      return false
     }
+    if (total <= 0) {
+      setError('Cart total must be greater than 0.')
+      return false
+    }
+    return true
+  }
 
-    setPlacing(true)
+  const createOrderAfterPayment = async (reference: string, currency: string) => {
     try {
       const res = await api.orders.create({
         customer,
         items: items.map((it) => ({ productId: it.product._id, qty: it.qty })),
+        payment: { provider: 'paystack', reference, currency },
       })
       setOrderId(res.orderId)
       clear()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to place order')
+      const msg = e instanceof Error ? e.message : 'Failed to place order after payment'
+      setError(`${msg}. Payment reference: ${reference}`)
     } finally {
       setPlacing(false)
     }
+  }
+
+  const payWithPaystack = () => {
+    setError(null)
+    if (!validateCheckout()) return
+
+    const key = (import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined)?.trim()
+    if (!key) {
+      setError('Missing VITE_PAYSTACK_PUBLIC_KEY')
+      return
+    }
+
+    const currency = 'GHS'
+    const amount = Math.round(Number(total) * 100)
+    const reference = `SRBT-${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+    const PaystackPop = (window as unknown as { PaystackPop?: unknown }).PaystackPop as
+      | { setup?: (opts: Record<string, unknown>) => { openIframe?: () => void } }
+      | undefined
+    if (!PaystackPop || typeof PaystackPop.setup !== 'function') {
+      setError('Paystack script failed to load. Please refresh and try again.')
+      return
+    }
+
+    setPlacing(true)
+    const handler = PaystackPop.setup({
+      key,
+      email: customer.email,
+      amount,
+      currency,
+      ref: reference,
+      metadata: {
+        custom_fields: [
+          { display_name: 'Full Name', variable_name: 'full_name', value: customer.fullName },
+          { display_name: 'Phone', variable_name: 'phone', value: customer.phone },
+          { display_name: 'Address', variable_name: 'address', value: customer.address },
+        ],
+      },
+      callback: (tx: { reference?: unknown }) => {
+        const ref = typeof tx.reference === 'string' && tx.reference.trim() ? tx.reference.trim() : reference
+        void createOrderAfterPayment(ref, currency)
+      },
+      onClose: () => {
+        setPlacing(false)
+        setError('Payment cancelled.')
+      },
+    })
+    if (!handler || typeof handler.openIframe !== 'function') {
+      setPlacing(false)
+      setError('Paystack payment could not be started. Please refresh and try again.')
+      return
+    }
+    handler.openIframe()
   }
 
   if (orderId) {
@@ -193,12 +253,9 @@ export function CartCheckoutPage() {
 
             {error ? <div className="text-sm font-semibold text-[#c9a227]">{error}</div> : null}
 
-            <Button variant="gold" onClick={placeOrder} disabled={!canCheckout}>
-              {placing ? 'Placing order…' : 'Place Order'}
+            <Button variant="gold" onClick={payWithPaystack} disabled={!canCheckout}>
+              {placing ? 'Processing…' : 'Pay with Paystack'}
             </Button>
-            <div className="text-xs text-white/45">
-              Orders are saved for confirmation. Payment processing is not included in this starter checkout.
-            </div>
           </div>
         </Panel>
       </div>

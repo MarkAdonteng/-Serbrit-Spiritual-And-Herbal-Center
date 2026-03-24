@@ -33,6 +33,12 @@ export type Order = {
   items: Array<{ productId: string; name: string; price: number; qty: number }>
   customer: OrderCustomer
   total: number
-  status: 'placed' | 'processing' | 'completed' | 'cancelled'
+  status: 'placed' | 'paid' | 'processing' | 'completed' | 'cancelled'
+  payment?: {
+    provider: 'paystack'
+    reference: string
+    currency: string
+    amount: number
+  }
   createdAt?: string
 }
