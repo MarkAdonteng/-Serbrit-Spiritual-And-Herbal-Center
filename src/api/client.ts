@@ -96,17 +96,38 @@ export const api = {
     }) => {
       const dbi = requireDb()
       const orderId = await runTransaction(dbi, async (tx) => {
-        const itemSnapshots = []
+        const productSnapshots: Array<{ ref: any; data: any; qty: number }> = []
+
+        // 1. PERFORM ALL READS FIRST
         for (const it of payload.items) {
           const pRef = doc(dbi, PRODUCTS, it.productId)
           const pSnap = await tx.get(pRef)
           if (!pSnap.exists()) throw new Error('One or more products no longer exists')
+          
           const pData = pSnap.data() as Record<string, unknown>
           const stock = Number(pData.stockQty ?? 0)
           const qty = Math.max(1, Math.floor(Number(it.qty) || 1))
-          if (stock < qty) throw new Error('Insufficient stock for one or more items')
-          tx.update(pRef, { stockQty: stock - qty, updatedAt: serverTimestamp() })
-          itemSnapshots.push({ productId: pSnap.id, name: String(pData.name ?? ''), price: Number(pData.price ?? 0), qty })
+          
+          if (stock < qty) throw new Error(`Insufficient stock for ${pData.name}`)
+          
+          productSnapshots.push({ ref: pRef, data: pData, qty })
+        }
+
+        // 2. PERFORM ALL WRITES AFTER
+        const itemSnapshots = []
+        for (const ps of productSnapshots) {
+          const currentStock = Number(ps.data.stockQty ?? 0)
+          tx.update(ps.ref, { 
+            stockQty: currentStock - ps.qty, 
+            updatedAt: serverTimestamp() 
+          })
+          
+          itemSnapshots.push({ 
+            productId: ps.ref.id, 
+            name: String(ps.data.name ?? ''), 
+            price: Number(ps.data.price ?? 0), 
+            qty: ps.qty 
+          })
         }
 
         const total = itemSnapshots.reduce((sum, it) => sum + it.price * it.qty, 0)
