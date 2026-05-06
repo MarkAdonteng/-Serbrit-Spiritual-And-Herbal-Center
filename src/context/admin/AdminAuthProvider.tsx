@@ -1,31 +1,45 @@
 import { useEffect, useMemo, useState } from 'react'
 import type React from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
 import { api } from '../../api/client'
-import { auth } from '../../firebase'
+import { auth, db } from '../../firebase'
 import { AdminAuthContext } from './context'
-
-const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string | undefined)?.trim().toLowerCase()
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!auth) return
+    if (!auth || !db) {
+      setLoading(false)
+      return
+    }
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+      if (!user || !db) {
         setToken(null)
+        setLoading(false)
         return
       }
 
-      const email = (user.email ?? '').trim().toLowerCase()
-      if (adminEmail && email !== adminEmail) {
-        await api.admin.logout()
-        setToken(null)
-        return
-      }
+      try {
+        // Check if user exists in the 'admins' collection
+        const adminRef = doc(db, 'admins', user.uid)
+        const adminSnap = await getDoc(adminRef)
 
-      setToken('firebase')
+        if (!adminSnap.exists()) {
+          console.warn('Unauthorized access attempt: User is not an admin.')
+          await api.admin.logout()
+          setToken(null)
+        } else {
+          setToken('firebase')
+        }
+      } catch (err) {
+        console.error('Error verifying admin status:', err)
+        setToken(null)
+      } finally {
+        setLoading(false)
+      }
     })
 
     return () => unsub()
@@ -37,6 +51,8 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       isAuthed: Boolean(token),
       login: async (email: string, password: string) => {
         const res = await api.admin.login({ email, password })
+        // After successful login, the onAuthStateChanged listener above 
+        // will handle the Firestore verification.
         setToken(res.token)
       },
       logout: () => {
@@ -45,6 +61,14 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       },
     }
   }, [token])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="text-sm font-semibold tracking-widest animate-pulse">VERIFYING AUTH...</div>
+      </div>
+    )
+  }
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
 }
