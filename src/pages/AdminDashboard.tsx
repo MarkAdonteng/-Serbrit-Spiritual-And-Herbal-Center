@@ -6,7 +6,7 @@ import { PRODUCT_CATEGORIES } from '../lib/constants'
 import { formatCurrency } from '../lib/format'
 import { withDefaultImageUrl } from '../lib/images'
 import { useAdminAuth } from '../context/admin/useAdminAuth'
-import type { Product, ProductCategory } from '../types'
+import type { Order, Product, ProductCategory } from '../types'
 import { Button, Input, Panel } from '../components/ui'
 
 export function AdminDashboardPage() {
@@ -18,6 +18,10 @@ export function AdminDashboardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [tab, setTab] = useState<'products' | 'orders'>('products')
+  const [orders, setOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
 
   const selected = useMemo(() => products.find((p) => p._id === selectedId) ?? null, [products, selectedId])
 
@@ -50,6 +54,29 @@ export function AdminDashboardPage() {
   useEffect(() => {
     void fetchProducts()
   }, [fetchProducts])
+
+  const fetchOrders = useCallback(async () => {
+    if (!token) {
+      setOrdersLoading(false)
+      return
+    }
+    setOrdersLoading(true)
+    setOrdersError(null)
+    try {
+      const data = await api.admin.listOrders(token)
+      setOrders(data)
+    } catch (e: unknown) {
+      setOrdersError(e instanceof Error ? e.message : 'Failed to load orders')
+    } finally {
+      setOrdersLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (tab === 'orders') {
+      void fetchOrders()
+    }
+  }, [tab, fetchOrders])
 
   useEffect(() => {
     if (!selected) return
@@ -211,9 +238,20 @@ export function AdminDashboardPage() {
         </div>
       </div>
 
-      {error ? <Panel className="p-4 text-sm font-semibold text-[#c9a227]">{error}</Panel> : null}
+      <div className="flex gap-2">
+        <Button variant={tab === 'products' ? 'gold' : 'ghost'} type="button" onClick={() => setTab('products')}>
+          Products
+        </Button>
+        <Button variant={tab === 'orders' ? 'gold' : 'ghost'} type="button" onClick={() => setTab('orders')}>
+          Orders
+        </Button>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      {error && tab === 'products' ? <Panel className="p-4 text-sm font-semibold text-[#c9a227]">{error}</Panel> : null}
+      {ordersError && tab === 'orders' ? <Panel className="p-4 text-sm font-semibold text-[#c9a227]">{ordersError}</Panel> : null}
+
+      {tab === 'products' ? (
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Panel className="p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-extrabold">{selectedId ? 'Edit Product' : 'Add Product'}</div>
@@ -332,7 +370,94 @@ export function AdminDashboardPage() {
             <div className="mt-4 text-sm text-white/70">No products yet.</div>
           )}
         </Panel>
-      </div>
+        </div>
+      ) : (
+        <Panel className="p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-extrabold">Orders</div>
+            <Button variant="ghost" type="button" onClick={() => void fetchOrders()} disabled={ordersLoading}>
+              Refresh
+            </Button>
+          </div>
+          {ordersLoading ? (
+            <div className="mt-4 text-sm text-white/70">Loading…</div>
+          ) : orders.length ? (
+            <div className="mt-4 grid gap-4">
+              {orders.map((o) => (
+                <div
+                  key={o._id}
+                  className="rounded-2xl bg-white/4 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.12)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3 mb-3">
+                    <div>
+                      <div className="text-sm font-extrabold">Order #{o._id.slice(-6).toUpperCase()}</div>
+                      <div className="text-xs text-white/50">
+                        {o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                        o.status === 'paid' || o.status === 'completed'
+                          ? 'bg-[#1f5f3a]/30 text-[#4ade80]'
+                          : o.status === 'cancelled'
+                            ? 'bg-red-500/20 text-red-400'
+                            : 'bg-[#c9a227]/20 text-[#c9a227]'
+                      }`}
+                    >
+                      {o.status}
+                    </span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs font-semibold text-white/50 mb-1">Customer</div>
+                      <div className="text-sm font-semibold">{o.customer.fullName}</div>
+                      <div className="text-sm text-white/70">{o.customer.email}</div>
+                      <div className="text-sm text-white/70">{o.customer.phone}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-white/50 mb-1">Shipping</div>
+                      <div className="text-sm text-white/70">{o.customer.address}</div>
+                      <div className="text-sm text-white/70">
+                        {o.customer.city}
+                        {o.customer.state ? `, ${o.customer.state}` : ''}, {o.customer.country}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold text-white/50 mb-2">Items</div>
+                    <div className="grid gap-2">
+                      {o.items.map((it, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span>
+                            {it.name} × {it.qty}
+                          </span>
+                          <span className="font-semibold">{formatCurrency(it.price * it.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {o.payment ? (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="text-xs font-semibold text-white/50 mb-1">Payment</div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/70">
+                        <span>Provider: {o.payment.provider}</span>
+                        <span>Ref: {o.payment.reference}</span>
+                        <span>Amount: {formatCurrency(o.payment.amount)}</span>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-sm font-semibold">Total</span>
+                    <span className="text-lg font-black text-[#c9a227]">{formatCurrency(o.total)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 text-sm text-white/70">No orders yet.</div>
+          )}
+        </Panel>
+      )}
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

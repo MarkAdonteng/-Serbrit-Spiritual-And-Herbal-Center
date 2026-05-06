@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import type { OrderCustomer, Product } from '../types'
+import type { Order, OrderCustomer, Product } from '../types'
 import { auth, db, firebaseConfigMissing } from '../firebase'
 
 const PRODUCTS = 'products'
@@ -170,6 +170,52 @@ export const api = {
       const authi = requireAuth()
       await signOut(authi)
       return { ok: true as const }
+    },
+    listOrders: async (_token: string) => {
+      void _token
+      const dbi = requireDb()
+      const qRef = query(collection(dbi, ORDERS), orderBy('createdAt', 'desc'))
+      const snap = await getDocs(qRef)
+      return snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>
+        const items = Array.isArray(data.items)
+          ? data.items.map((it: unknown) => {
+              const m = it as Record<string, unknown>
+              return {
+                productId: String(m.productId ?? ''),
+                name: String(m.name ?? ''),
+                price: Number(m.price ?? 0),
+                qty: Number(m.qty ?? 1),
+              }
+            })
+          : []
+        const customer = (data.customer ?? {}) as Record<string, unknown>
+        const payment = data.payment ? (data.payment as Record<string, unknown>) : undefined
+        return {
+          _id: d.id,
+          items,
+          customer: {
+            fullName: String(customer.fullName ?? ''),
+            email: String(customer.email ?? ''),
+            phone: String(customer.phone ?? ''),
+            address: String(customer.address ?? ''),
+            city: String(customer.city ?? ''),
+            state: String(customer.state ?? ''),
+            country: String(customer.country ?? ''),
+          },
+          total: Number(data.total ?? 0),
+          status: String(data.status ?? 'placed') as Order['status'],
+          payment: payment
+            ? {
+                provider: String(payment.provider ?? 'paystack') as 'paystack',
+                reference: String(payment.reference ?? ''),
+                currency: String(payment.currency ?? 'GHS'),
+                amount: Number(payment.amount ?? 0),
+              }
+            : undefined,
+          createdAt: timestampToIso(data.createdAt),
+        }
+      })
     },
     listProducts: async (_token: string) => {
       void _token
